@@ -2,46 +2,32 @@ rt: namespace = {
     // Constants
     infinity: double = std::numeric_limits<double>::infinity();
     pi: double = std::numbers::pi;
-    aspect_ratio : double = 16.0 / 9.0;
     samples_per_pixel : int = 100;
 
     // Utility Functions
-    degrees_to_radians: (degrees: double) -> double = {
-        return degrees * pi / 180.0;
-    }
-
-    random_double: () -> double = {
-        return std::rand() / (RAND_MAX + 1.0);
-    }
-
-    random_double: (min: double, max: double) -> double = {
-        return min + (max - min) * random_double();
-    }
+    degrees_to_radians: (degrees: double) -> double = degrees * pi / 180.0;
+    random_double: () -> double = std::rand() / (RAND_MAX + 1.0);
+    random_double: (min: double, max: double) -> double = min + (max - min) * random_double();
 
     ///////////////////////////////////////// vec3 /////////////////////////////////////
     vec3: type = {
         public e: std::array<double, 3> = (0.0, 0.0, 0.0);
 
         operator=: (out this) = {}
-
         operator=: (out this, x_: double, y_: double, z_: double) = {
-            e[0] = x_;
-            e[1] = y_;
-            e[2] = z_;
+            e = (x_, y_, z_);
         }
 
-        x: (this) -> double = { return e[0]; }
-        y: (this) -> double = { return e[1]; }
-        z: (this) -> double = { return e[2]; }
+        x: (this) -> double = e[0];
+        y: (this) -> double = e[1];
+        z: (this) -> double = e[2];
 
-        operator-: (this) -> vec3 = { return vec3(-e[0], -e[1], -e[2]); }
-        at: (this, i: int) -> double = { return e[i]; }
-        set_at: (inout this, i: int, val: double) = { e[i] = val; }
+        operator-: (this) -> vec3 = vec3(-e[0], -e[1], -e[2]);
 
         operator+=: (inout this, v: vec3) = {
-            e[0] += v.at(0);
-            e[1] += v.at(1);
-            e[2] += v.at(2);
+            e[0] += v.x();
+            e[1] += v.y();
+            e[2] += v.z();
         }
 
         operator*=: (inout this, t: double) = {
@@ -54,13 +40,8 @@ rt: namespace = {
             this *= 1 / t;
         }
 
-        length: (this) -> double = {
-            return std::sqrt(length_squared());
-        }
-
-        length_squared: (this) -> double = {
-            return e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
-        }
+        length: (this) -> double = std::sqrt(length_squared());
+        length_squared: (this) -> double = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
 
         random: () -> vec3 = {
             return vec3(random_double(), random_double(), random_double());
@@ -84,43 +65,21 @@ rt: namespace = {
         return os << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
     }
 
-    operator+: (u: vec3, v: vec3) -> vec3 = {
-        return vec3(u.e[0] + v.e[0], u.e[1] + v.e[1], u.e[2] + v.e[2]);
-    }
+    operator+: (u: vec3, v: vec3) -> vec3 = vec3(u.e[0] + v.e[0], u.e[1] + v.e[1], u.e[2] + v.e[2]);
+    operator-: (u: vec3, v: vec3) -> vec3 = vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
+    operator*: (u: vec3, v: vec3) -> vec3 = vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
+    operator*: (t: double, v: vec3) -> vec3 = vec3(t * v.e[0], t * v.e[1], t * v.e[2]);
+    operator*: (v: vec3, t: double) -> vec3 = t * v;
+    operator/: (v: vec3, t: double) -> vec3 = (1.0 / t) * v;
 
-    operator-: (u: vec3, v: vec3) -> vec3 = {
-        return vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
-    }
+    dot: (u: vec3, v: vec3) -> double = u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2];
 
-    operator*: (u: vec3, v: vec3) -> vec3 = {
-        return vec3(u.e[0] * v.e[0], u.e[1] * v.e[1], u.e[2] * v.e[2]);
-    }
+    cross: (u: vec3, v: vec3) -> vec3 =
+        vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1],
+             u.e[2] * v.e[0] - u.e[0] * v.e[2],
+             u.e[0] * v.e[1] - u.e[1] * v.e[0]);
 
-    operator*: (t: double, v: vec3) -> vec3 = {
-        return vec3(t * v.e[0], t * v.e[1], t * v.e[2]);
-    }
-
-    operator*: (v: vec3, t: double) -> vec3 = {
-        return t * v;
-    }
-
-    operator/: (v: vec3, t: double) -> vec3 = {
-        return (1.0 / t) * v;
-    }
-
-    dot: (u: vec3, v: vec3) -> double = {
-        return u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2];
-    }
-
-    cross: (u: vec3, v: vec3) -> vec3 = {
-        return vec3(u.e[1] * v.e[2] - u.e[2] * v.e[1],
-                    u.e[2] * v.e[0] - u.e[0] * v.e[2],
-                    u.e[0] * v.e[1] - u.e[1] * v.e[0]);
-    }
-
-    reflect: (v: vec3, n: vec3) -> vec3 = {
-        return v - 2.0 * dot(v, n) * n;
-    }
+    reflect: (v: vec3, n: vec3) -> vec3 = v - 2.0 * dot(v, n) * n;
 
     refract: (uv: vec3, n: vec3, etai_over_etat: double) -> vec3 = {
         cos_theta := std::fmin(dot(-uv, n), 1.0);
@@ -129,9 +88,7 @@ rt: namespace = {
         return r_out_perp + r_out_parallel;
     }
 
-    unit_vector: (v: vec3) -> vec3 = {
-        return v / v.length();
-    }
+    unit_vector: (v: vec3) -> vec3 = v / v.length();
 
     random_in_unit_sphere: () -> vec3 = {
         while true {
@@ -141,9 +98,7 @@ rt: namespace = {
         }
     }
 
-    random_unit_vector: () -> vec3 = {
-        return unit_vector(random_in_unit_sphere());
-    }
+    random_unit_vector: () -> vec3 = unit_vector(random_in_unit_sphere());
 
     write_color: (inout os: std::ostream, pixel_color: color) = {
         r := pixel_color.x();
@@ -164,54 +119,63 @@ rt: namespace = {
 
     ///////////////////////////////////////// ray /////////////////////////////////////
     ray: type = {
-        orig: point3;
-        dir: vec3;
+        orig: point3 = (0, 0, 0);
+        dir: vec3 = (0, 0, 0);
 
-        operator=: (out this) = {
-            orig = point3(0, 0, 0);
-            dir = vec3(0, 0, 0);
-        }
-
+        operator=: (out this) = {}
         operator=:(out this, the_origin: point3, the_direction: vec3) = {
             orig = the_origin;
             dir = the_direction;
         }
 
-        origin: (this) -> point3 = { return orig; }
-        direction: (this) -> vec3 = { return dir; }
+        origin: (this) -> point3 = orig;
+        direction: (this) -> vec3 = dir;
 
-        at: (this, t: double) -> point3 = {
-            return orig + t * dir;
-        }
+        at: (this, t: double) -> point3 = orig + t * dir;
     }
 
     /////////////////////////////////////// camera ///////////////////////////////////////
     camera: type = {
-        origin: point3;
-        horizontal: vec3;
-        vertical: vec3;
-        lower_left_corner: point3;
+        origin: point3 = (0, 0, 0);
+        horizontal: vec3 = (0, 0, 0);
+        vertical: vec3 = (0, 0, 0);
+        lower_left_corner: point3 = (0, 0, 0);
 
-        operator=: (out this) = {
-            origin = point3(0, 0, 0);
-            horizontal = vec3(aspect_ratio * 2.0, 0, 0);
-            vertical = vec3(0, 2.0, 0);
-            lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - vec3(0, 0, 1.0);
+        operator=: (out this, lookfrom: point3, lookat: point3, vup: vec3, vfov: double, aspect_ratio: double) = {
+            viewport_height := 2.0 * tan(degrees_to_radians(vfov) / 2.0);
+            viewport_width := aspect_ratio * viewport_height;
+            focal_length := 1.0;
+
+            w := unit_vector(lookfrom - lookat);
+            u := unit_vector(cross(vup, w));
+            v := cross(w, u);
+
+            origin = lookfrom;
+            horizontal = viewport_width * u;
+            vertical = viewport_height * v;
+            lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - w;
+            lower_left_corner = origin - horizontal/2 - vertical/2 - w;
         }
 
-        get_ray: (this, u: double, v: double) -> ray = {
-            return ray(origin, lower_left_corner + u * horizontal + v * vertical - origin);
+        get_ray: (this, s: double, t: double) -> ray = {
+            return ray(origin, lower_left_corner + s * horizontal + t * vertical - origin);
         }
     }
 
     ///////////////////////////////////// material ///////////////////////////////////////
-    lambertian: type = {
-        albedo: color;
+    material: type = {
+        operator=: (out this) = {}
+        scatter: (virtual this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool;
+    }
 
-        operator=: (out this) = { albedo = color(0, 0, 0); }
+    lambertian: type = {
+        this: material = ();
+        albedo: color = (0, 0, 0);
+
+        operator=: (out this) = {}
         operator=: (out this, a: color) = { albedo = a; }
 
-        scatter: (this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
+        scatter: (override this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
             scatter_direction := rec.normal + random_unit_vector();
             // Catch degenerate scatter direction
             if scatter_direction.near_zero() { scatter_direction = rec.normal; }
@@ -222,13 +186,17 @@ rt: namespace = {
     }
 
     metal: type = {
-        albedo: color;
-        fuzz: double;
+        this: material = ();
+        albedo: color = (0, 0, 0);
+        fuzz: double = 0.0;
 
-        operator=: (out this) = { albedo = color(0, 0, 0); fuzz = 0.0; }
-        operator=: (out this, a: color, f: double) = { albedo = a; fuzz = std::min(f, 1.0); }
+        operator=: (out this) = {}
+        operator=: (out this, a: color, f: double) = {
+            albedo = a;
+            fuzz = std::min(f, 1.0);
+        }
 
-        scatter: (this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
+        scatter: (override this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
             reflected := reflect(unit_vector(r_in.direction()), rec.normal);
             scattered = ray(rec.p, reflected + fuzz * random_in_unit_sphere());
             attenuation = albedo;
@@ -237,12 +205,13 @@ rt: namespace = {
     }
 
     dielectric: type = {
-        ir: double; // Index of Refraction
+        this: material = ();
+        ir: double = 0.0; // Index of Refraction
 
-        operator=: (out this) = { ir = 0.0; }
+        operator=: (out this) = {}
         operator=: (out this, index_of_refraction: double) = { ir = index_of_refraction; }
 
-        scatter: (this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
+        scatter: (override this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
             attenuation = color(1.0, 1.0, 1.0);
             refraction_ratio := ir;
             if rec.front_face { refraction_ratio = 1.0 / refraction_ratio; }
@@ -273,34 +242,39 @@ rt: namespace = {
         }
     }
 
-    material: type == std::variant<lambertian, metal, dielectric>;
-
     ///////////////////////////////////// hittable ///////////////////////////////////////
     hit_record: type = {
-        public p: point3;
-        public normal: vec3;
-        public mat: material;
-        public t: double;
-        public front_face: bool;
+        public p: point3 = (0, 0, 0);
+        public normal: vec3 = (0, 0, 0);
+        public mat: std::shared_ptr<material> = ();
+        public t: double = 0.0;
+        public front_face: bool = false;
 
+        operator=: (out this) = {}
         set_face_normal: (inout this, r: ray, outward_normal: vec3) = {
             front_face = dot(r.direction(), outward_normal) < 0;
             if front_face { normal = outward_normal; } else { normal = -outward_normal; }
         }
     }
 
+    hittable: type = {
+        operator=: (out this) = {}
+        hit: (virtual this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool;
+    }
+
     sphere: type = {
+        this: hittable = ();
         center: point3;
         radius: double;
-        mat: material;
+        mat: std::shared_ptr<material>;
 
-        operator=:(out this, p: point3, r: double, m: material) = {
+        operator=:(out this, p: point3, r: double, move m : std::shared_ptr<material>) = {
             center = p;
             radius = r;
             mat = m;
         }
 
-        hit: (this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool = {
+        hit: (override this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool = {
             oc := r.origin() - center;
             a := r.direction().length_squared();
             half_b := dot(oc, r.direction());
@@ -328,45 +302,44 @@ rt: namespace = {
         }
     }
 
-    hit: (r: ray, objects: std::vector<sphere>, t_min: double, t_max: double, inout rec: hit_record) -> bool = {
-        temp_rec := hit_record();
-        hit_anything := false;
-        closest_so_far := t_max;
+    hittable_list: type = {
+        this: hittable = ();
+        objects: std::vector<std::shared_ptr<hittable>> = ();
 
-        for objects do: (object) = {
-            if object.hit(r, t_min, closest_so_far, temp_rec) {
-                hit_anything = true;
-                closest_so_far = temp_rec.t;
-                rec = temp_rec;
-            }
+        operator=: (out this) = {}
+
+        add: (inout this, obj: std::shared_ptr<hittable>) = {
+            objects.push_back(obj);
         }
 
-        return hit_anything;
+        hit: (override this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool = {
+            temp_rec := hit_record();
+            hit_anything := false;
+            closest_so_far := t_max;
+
+            for objects do: (object) = {
+                if object*.hit(r, t_min, closest_so_far, temp_rec) {
+                    hit_anything = true;
+                    closest_so_far = temp_rec.t;
+                    rec = temp_rec;
+                }
+            }
+
+            return hit_anything;
+        }
     }
 
     /////////////////////////////////// ray tracing //////////////////////////////////////
-    ray_color: (r: ray, world: std::vector<sphere>, depth: int) -> color = {
+    ray_color: (r: ray, world: hittable_list, depth: int) -> color = {
         if depth <= 0 { return color(0, 0, 0); }
 
         rec := hit_record();
-        if hit(r, world, 0.001, infinity, rec) {
+        if world.hit(r, 0.001, infinity, rec) {
             scattered := ray();
             attenuation := color();
-            is_scattered := false;
-
-            // TODO this is a workaround because function expressions don't yet support powerful enough captures
-            // to use std::visit and I can't get inspect to work either
-            if std::holds_alternative<lambertian>(rec.mat) {
-                is_scattered = std::get<lambertian>(rec.mat).scatter(r, rec, attenuation, scattered);
+            if rec.mat*.scatter(r, rec, attenuation, scattered) {
+                return attenuation * ray_color(scattered, world, depth-1);
             }
-            if std::holds_alternative<metal>(rec.mat) {
-                is_scattered = std::get<metal>(rec.mat).scatter(r, rec, attenuation, scattered);
-            }
-            if std::holds_alternative<dielectric>(rec.mat) {
-                is_scattered = std::get<dielectric>(rec.mat).scatter(r, rec, attenuation, scattered);
-            }
-
-            if is_scattered { return attenuation * ray_color(scattered, world, depth-1); }
 
             return color(0,0,0);
         }
@@ -379,25 +352,26 @@ rt: namespace = {
 
 main: () -> int = {
     // Image
+    aspect_ratio : double = 16.0 / 9.0;
     image_width := 400;
-    image_height := static_cast<int>(image_width / rt::aspect_ratio);
+    image_height := static_cast<int>(image_width / aspect_ratio);
     max_depth := 50;
 
     // World
-    material_ground := rt::material(rt::lambertian(rt::color(0.8, 0.8, 0.0)));
-    material_center := rt::material(rt::lambertian(rt::color(0.1, 0.2, 0.5)));
-    material_left   := rt::material(rt::dielectric(1.5));
-    material_right  := rt::material(rt::metal(rt::color(0.8, 0.6, 0.2), 0.0));
+    material_ground := cpp2::shared.new<rt::lambertian>(rt::color(0.8, 0.8, 0.0));
+    material_center := cpp2::shared.new<rt::lambertian>(rt::color(0.1, 0.2, 0.5));
+    material_left   := cpp2::shared.new<rt::dielectric>(1.5);
+    material_right  := cpp2::shared.new<rt::metal>(rt::color(0.8, 0.6, 0.2), 0.0);
 
-    world := std::vector<rt::sphere>();
-    world.emplace_back(rt::point3( 0.0, -100.5, -1.0), 100.0, material_ground);
-    world.emplace_back(rt::point3( 0.0,    0.0, -1.0),   0.5, material_center);
-    world.emplace_back(rt::point3(-1.0,    0.0, -1.0),   0.5, material_left);
-    world.emplace_back(rt::point3(-1.0,    0.0, -1.0),  -0.4, material_left);
-    world.emplace_back(rt::point3( 1.0,    0.0, -1.0),   0.5, material_right);
+    world := rt::hittable_list();
+    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 0.0, -100.5, -1.0), 100.0, material_ground));
+    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 0.0,    0.0, -1.0),   0.5, material_center));
+    world.add(cpp2::shared.new<rt::sphere>(rt::point3(-1.0,    0.0, -1.0),   0.5, material_left));
+    world.add(cpp2::shared.new<rt::sphere>(rt::point3(-1.0,    0.0, -1.0),  -0.4, material_left));
+    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 1.0,    0.0, -1.0),   0.5, material_right));
 
     // Camera
-    cam := rt::camera();
+    cam := rt::camera(rt::point3(-2,2,1), rt::point3(0,0,-1), rt::vec3(0,1,0), 20, aspect_ratio);
 
     // Render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
