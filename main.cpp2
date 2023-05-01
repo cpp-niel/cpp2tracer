@@ -2,7 +2,7 @@ rt: namespace = {
     // Constants
     infinity: double = std::numeric_limits<double>::infinity();
     pi: double = std::numbers::pi;
-    samples_per_pixel : int = 100;
+    samples_per_pixel : int = 500;
 
     // Utility Functions
     degrees_to_radians: (degrees: double) -> double = degrees * pi / 180.0;
@@ -10,10 +10,9 @@ rt: namespace = {
     random_double: (min: double, max: double) -> double = min + (max - min) * random_double();
 
     ///////////////////////////////////////// vec3 /////////////////////////////////////
-    vec3: type = {
+    vec3: @value type = {
         public e: std::array<double, 3> = (0.0, 0.0, 0.0);
 
-        operator=: (out this) = {}
         operator=: (out this, x_: double, y_: double, z_: double) = {
             e = (x_, y_, z_);
         }
@@ -36,34 +35,31 @@ rt: namespace = {
             e[2] *= t;
         }
 
-        operator/=: (inout this, t: double) = {
-            this *= 1 / t;
-        }
+        operator/=: (inout this, t: double) = this *= 1 / t;
 
         length: (this) -> double = std::sqrt(length_squared());
         length_squared: (this) -> double = e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
 
-        random: () -> vec3 = {
-            return vec3(random_double(), random_double(), random_double());
-        }
+        random: () -> vec3 = vec3(random_double(), random_double(), random_double());
 
-        random: (min: double, max: double) -> vec3 = {
-            return vec3(random_double(min, max), random_double(min, max), random_double(min, max));
-        }
+        random: (min: double, max: double) -> vec3 = vec3(
+            random_double(min, max),
+            random_double(min, max),
+            random_double(min, max));
 
         near_zero: (this) -> bool = {
             // Return true if the vector is close to zero in all dimensions.
             s := 1e-8;
             return (std::fabs(e[0]) < s) && (std::fabs(e[1]) < s) && (std::fabs(e[2]) < s);
         }
+
+        print: (this, inout os: std::ostream, v: vec3) = {
+            os << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
+        }
     }
 
     point3: type == vec3;
     color: type == vec3;
-
-    operator<<: (inout os: std::ostream, v: vec3) -> forward std::ostream = {
-        return os << v.e[0] << ' ' << v.e[1] << ' ' << v.e[2];
-    }
 
     operator+: (u: vec3, v: vec3) -> vec3 = vec3(u.e[0] + v.e[0], u.e[1] + v.e[1], u.e[2] + v.e[2]);
     operator-: (u: vec3, v: vec3) -> vec3 = vec3(u.e[0] - v.e[0], u.e[1] - v.e[1], u.e[2] - v.e[2]);
@@ -98,6 +94,14 @@ rt: namespace = {
         }
     }
 
+    random_in_unit_disk: () -> vec3 = {
+        while (true) {
+            p := vec3(random_double(-1.0, 1.0), random_double(-1.0, 1.0), 0.0);
+            if p.length_squared() >= 1.0 { continue; }
+            return p;
+        }
+    }
+
     random_unit_vector: () -> vec3 = unit_vector(random_in_unit_sphere());
 
     write_color: (inout os: std::ostream, pixel_color: color) = {
@@ -118,11 +122,10 @@ rt: namespace = {
     }
 
     ///////////////////////////////////////// ray /////////////////////////////////////
-    ray: type = {
+    ray: @value type = {
         orig: point3 = (0, 0, 0);
         dir: vec3 = (0, 0, 0);
 
-        operator=: (out this) = {}
         operator=:(out this, the_origin: point3, the_direction: vec3) = {
             orig = the_origin;
             dir = the_direction;
@@ -140,39 +143,44 @@ rt: namespace = {
         horizontal: vec3 = (0, 0, 0);
         vertical: vec3 = (0, 0, 0);
         lower_left_corner: point3 = (0, 0, 0);
+        w: vec3 = (0, 0, 0);
+        u: vec3 = (0, 0, 0);
+        v: vec3 = (0, 0, 0);
+        lens_radius: double = 0.0;
 
-        operator=: (out this, lookfrom: point3, lookat: point3, vup: vec3, vfov: double, aspect_ratio: double) = {
+        operator=: (out this, lookfrom: point3, lookat: point3, vup: vec3, vfov: double,
+                    aspect_ratio: double, aperture: double, focus_dist: double) = {
             viewport_height := 2.0 * tan(degrees_to_radians(vfov) / 2.0);
             viewport_width := aspect_ratio * viewport_height;
             focal_length := 1.0;
 
-            w := unit_vector(lookfrom - lookat);
-            u := unit_vector(cross(vup, w));
-            v := cross(w, u);
+            w = unit_vector(lookfrom - lookat);
+            u = unit_vector(cross(vup, w));
+            v = cross(w, u);
 
             origin = lookfrom;
-            horizontal = viewport_width * u;
-            vertical = viewport_height * v;
-            lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - w;
-            lower_left_corner = origin - horizontal/2 - vertical/2 - w;
+            horizontal = focus_dist * viewport_width * u;
+            vertical = focus_dist * viewport_height * v;
+            lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - focus_dist * w;
+            lens_radius = aperture / 2.0;
         }
 
         get_ray: (this, s: double, t: double) -> ray = {
-            return ray(origin, lower_left_corner + s * horizontal + t * vertical - origin);
+            rd := lens_radius * random_in_unit_disk();
+            offset := u * rd.x() + v * rd.y();
+            return ray(origin + offset, lower_left_corner + s * horizontal + t * vertical - origin - offset);
         }
     }
 
     ///////////////////////////////////// material ///////////////////////////////////////
-    material: type = {
-        operator=: (out this) = {}
-        scatter: (virtual this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool;
+    material: @interface type = {
+        scatter: (this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool;
     }
 
     lambertian: type = {
         this: material = ();
         albedo: color = (0, 0, 0);
 
-        operator=: (out this) = {}
         operator=: (out this, a: color) = { albedo = a; }
 
         scatter: (override this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
@@ -190,7 +198,6 @@ rt: namespace = {
         albedo: color = (0, 0, 0);
         fuzz: double = 0.0;
 
-        operator=: (out this) = {}
         operator=: (out this, a: color, f: double) = {
             albedo = a;
             fuzz = std::min(f, 1.0);
@@ -208,7 +215,6 @@ rt: namespace = {
         this: material = ();
         ir: double = 0.0; // Index of Refraction
 
-        operator=: (out this) = {}
         operator=: (out this, index_of_refraction: double) = { ir = index_of_refraction; }
 
         scatter: (override this, r_in: ray, rec: hit_record, inout attenuation: color, inout scattered: ray) -> bool = {
@@ -243,23 +249,21 @@ rt: namespace = {
     }
 
     ///////////////////////////////////// hittable ///////////////////////////////////////
-    hit_record: type = {
-        public p: point3 = (0, 0, 0);
-        public normal: vec3 = (0, 0, 0);
-        public mat: std::shared_ptr<material> = ();
-        public t: double = 0.0;
-        public front_face: bool = false;
+    hit_record: @struct type = {
+        p: point3 = (0, 0, 0);
+        normal: vec3 = (0, 0, 0);
+        mat: std::shared_ptr<material> = ();
+        t: double = 0.0;
+        front_face: bool = false;
 
-        operator=: (out this) = {}
         set_face_normal: (inout this, r: ray, outward_normal: vec3) = {
             front_face = dot(r.direction(), outward_normal) < 0;
             if front_face { normal = outward_normal; } else { normal = -outward_normal; }
         }
     }
 
-    hittable: type = {
-        operator=: (out this) = {}
-        hit: (virtual this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool;
+    hittable: @interface type = {
+        hit: (this, r: ray, t_min: double, t_max: double, inout rec: hit_record) -> bool;
     }
 
     sphere: type = {
@@ -268,7 +272,7 @@ rt: namespace = {
         radius: double;
         mat: std::shared_ptr<material>;
 
-        operator=:(out this, p: point3, r: double, move m : std::shared_ptr<material>) = {
+        operator=:(out this, p: point3, r: double, m : std::shared_ptr<material>) = {
             center = p;
             radius = r;
             mat = m;
@@ -317,7 +321,7 @@ rt: namespace = {
             hit_anything := false;
             closest_so_far := t_max;
 
-            for objects do: (object) = {
+            for objects do (object) {
                 if object*.hit(r, t_min, closest_so_far, temp_rec) {
                     hit_anything = true;
                     closest_so_far = temp_rec.t;
@@ -348,30 +352,74 @@ rt: namespace = {
         t := 0.5 * (unit_direction.y() + 1.0);
         return (1.0 - t) * color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);
     }
+
+    random_scene: () -> std::unique_ptr<hittable_list> = {
+        world := new<hittable_list>();
+
+        ground_material := cpp2::shared.new<lambertian>(color(0.5, 0.5, 0.5));
+        world*.add(cpp2::shared.new<sphere>(point3(0,-1000,0), 1000, ground_material));
+
+        a := -11; while a < 11 next a++ {
+            b := -11; while b < 11 next b++ {
+                choose_mat := random_double();
+                center := point3(a + 0.9 * random_double(), 0.2, b + 0.9 * random_double());
+
+                if (center - point3(4.0, 0.2, 0.0)).length() > 0.9 {
+                    sphere_material := std::shared_ptr<material>();
+
+                    if choose_mat < 0.8 {
+                        // diffuse
+                        albedo := color::random() * color::random();
+                        sphere_material = cpp2::shared.new<lambertian>(albedo);
+                        world*.add(cpp2::shared.new<sphere>(center, 0.2, sphere_material));
+                    } else {
+                        if choose_mat < 0.95 {
+                            // metal
+                            albedo := color::random(0.5, 1.0);
+                            fuzz := random_double(0.0, 0.5);
+                            sphere_material = cpp2::shared.new<metal>(albedo, fuzz);
+                            world*.add(cpp2::shared.new<sphere>(center, 0.2, sphere_material));
+                        } else {
+                            // glass
+                            sphere_material = cpp2::shared.new<dielectric>(1.5);
+                            world*.add(cpp2::shared.new<sphere>(center, 0.2, sphere_material));
+                        }
+                    }
+                }
+            }
+        }
+
+        material1 := cpp2::shared.new<dielectric>(1.5);
+        world*.add(cpp2::shared.new<sphere>(point3(0.0, 1.0, 0.0), 1.0, material1));
+
+        material2 := cpp2::shared.new<lambertian>(color(0.4, 0.2, 0.1));
+        world*.add(cpp2::shared.new<sphere>(point3(-4.0, 1.0, 0.0), 1.0, material2));
+
+        material3 := cpp2::shared.new<metal>(color(0.7, 0.6, 0.5), 0.0);
+        world*.add(cpp2::shared.new<sphere>(point3(4.0, 1.0, 0.0), 1.0, material3));
+
+        return world;
+    }
 }
 
 main: () -> int = {
     // Image
-    aspect_ratio : double = 16.0 / 9.0;
-    image_width := 400;
+    aspect_ratio := 3.0 / 2.0;
+    image_width := 800;
     image_height := static_cast<int>(image_width / aspect_ratio);
     max_depth := 50;
 
     // World
-    material_ground := cpp2::shared.new<rt::lambertian>(rt::color(0.8, 0.8, 0.0));
-    material_center := cpp2::shared.new<rt::lambertian>(rt::color(0.1, 0.2, 0.5));
-    material_left   := cpp2::shared.new<rt::dielectric>(1.5);
-    material_right  := cpp2::shared.new<rt::metal>(rt::color(0.8, 0.6, 0.2), 0.0);
-
-    world := rt::hittable_list();
-    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 0.0,    0.0, -1.0),   0.5, material_center));
-    world.add(cpp2::shared.new<rt::sphere>(rt::point3(-1.0,    0.0, -1.0),   0.5, material_left));
-    world.add(cpp2::shared.new<rt::sphere>(rt::point3(-1.0,    0.0, -1.0),  -0.4, material_left));
-    world.add(cpp2::shared.new<rt::sphere>(rt::point3( 1.0,    0.0, -1.0),   0.5, material_right));
+    world := rt::random_scene();
 
     // Camera
-    cam := rt::camera(rt::point3(-2,2,1), rt::point3(0,0,-1), rt::vec3(0,1,0), 20, aspect_ratio);
+    lookfrom := rt::point3(13.0, 2.0, 3.0);
+    lookat := rt::point3(0.0, 0.0, 0.0);
+    vup := rt::vec3(0.0, 1.0, 0.0);
+    dist_to_focus := 10.0;
+    aperture := 0.1;
+
+    cam := rt::camera(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus);
 
     // Render
     std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
@@ -384,7 +432,7 @@ main: () -> int = {
                 u := (i + rt::random_double()) / (image_width-1);
                 v := (j + rt::random_double()) / (image_height-1);
                 r := cam.get_ray(u, v);
-                pixel_color += ray_color(r, world, max_depth);
+                pixel_color += ray_color(r, world*, max_depth);
             }
 
             write_color(std::cout, pixel_color);
