@@ -4,6 +4,10 @@
 
 ---
 
+![](image.jpg)
+
+---
+
 This is a reasonably faithful reimplementation of the code from the *Raytracing in One Weekend* book
 using Herb Sutter's Cpp2 language syntax.
 
