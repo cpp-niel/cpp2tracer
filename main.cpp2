@@ -2,7 +2,7 @@ rt: namespace = {
     // Constants
     infinity: double = std::numeric_limits<double>::infinity();
     pi: double = std::numbers::pi;
-    samples_per_pixel : int = 500;
+    samples_per_pixel : int = 5;
 
     // Utility Functions
     degrees_to_radians: (degrees: double) -> double = degrees * pi / 180.0;
@@ -116,9 +116,9 @@ rt: namespace = {
         b = std::sqrt(scale * b);
 
         // Write the translated [0,255] value of each color component.
-        os << static_cast<int>(256 * std::clamp(r, 0.0, 0.999)) << ' '
-           << static_cast<int>(256 * std::clamp(g, 0.0, 0.999)) << ' '
-           << static_cast<int>(256 * std::clamp(b, 0.0, 0.999)) << '\n';
+        os << cpp2::unsafe_narrow<int>(256 * std::clamp(r, 0.0, 0.999)) << ' '
+           << cpp2::unsafe_narrow<int>(256 * std::clamp(g, 0.0, 0.999)) << ' '
+           << cpp2::unsafe_narrow<int>(256 * std::clamp(b, 0.0, 0.999)) << '\n';
     }
 
     ///////////////////////////////////////// ray /////////////////////////////////////
@@ -406,7 +406,7 @@ main: () -> int = {
     // Image
     aspect_ratio := 3.0 / 2.0;
     image_width := 800;
-    image_height := static_cast<int>(image_width / aspect_ratio);
+    image_height := cpp2::unsafe_narrow<int>(image_width / aspect_ratio);
     max_depth := 50;
 
     // World
